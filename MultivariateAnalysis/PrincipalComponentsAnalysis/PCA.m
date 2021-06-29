@@ -1,12 +1,18 @@
 clear;
 clc;
 expect_dim = input('expect_dim = ');
+%% input (excel或txt均可，要带后缀噢)
+filename = ('filename:');
+X = importdata('filename');
+% 如果X不是纯数据
+% X = X.data;
+%% 
 X = input('X = ');
 X_size = size(X);
 Y = X*X';
 [eigen_vectors, eigen_values] = eig(Y);
 
-%sort
+%% sort
 for i = 1:X_size(1)
     min = i;
     for j = i+1:X_size(1)
