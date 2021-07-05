@@ -1,0 +1,7 @@
+X = zeros(4,16);
+
+for A=1:2
+    for B=1:2
+        for C=1:2
+            for D=1:2
+                X
