@@ -1,7 +1,8 @@
 import numpy as np
+import math
 
 class PSO:
-    def __init__(self, dim, target_func, restrict_func = None, N=40, w=0.5, c1=0.25, c2=0.25, random_scale=1, random_bias=0):
+    def __init__(self, dim, target_func, restrict_func = None, N=40, w=0.5, c1=0.146, c2=0.146, random_scale=1, random_bias=0):
         self.dim = dim
         self.target_func = target_func
         self.restrict_func = restrict_func
@@ -74,32 +75,14 @@ class PSO:
 
 
 
-# value = np.array([5,10,13,4,3,11,13,10,8,16,7,4])
-# weight = np.array([2,5,18,3,2,5,10,4,11,7,14,6])
-
-# def hard_sigmoid(real_x):
-#     x = np.copy(real_x)
-#     for i in range(len(x)):
-#         x[i] = 1/(1+np.math.exp(-x[i]))
-#         if x[i] >= 0.5:
-#             x[i] = 1
-#         else:
-#             x[i] = 0
-#     return x
-
+# def shubert(x):
+#     z1 = (1 * np.cos((1 + 1) * x[0] + 1)) + (2 * np.cos((2 + 1) * x[0] + 2)) + (3 * np.cos((3 + 1) * x[0] + 3)) + (
+#             4 * np.cos((4 + 1) * x[0] + 4)) + (5 * np.cos((5 + 1) * x[0] + 5))
+#     z2 = (1 * np.cos((1 + 1) *x[1] + 1)) + (2 * np.cos((2 + 1) *x[1] + 2)) + (3 * np.cos((3 + 1) *x[1] + 3)) + (
+#             4 * np.cos((4 + 1) *x[1] + 4)) + (5 * np.cos((5 + 1) *x[1] + 5))
+#     return -(z1*z2)
 # def target_func(x):
-#     tmp_x = np.copy(x)
-#     return -sum(hard_sigmoid(tmp_x)*value)
+#     return 0.5+((np.math.pow(np.math.sin(math.sqrt(x[0]*x[0]+x[1]*x[1])),2)-0.5)/np.math.pow((1+0.001*(x[0]*x[0]+x[1]*x[1])),2))
 
-# def restrict_func(x):
-#     tmp_x = np.copy(x)
-#     if sum(hard_sigmoid(tmp_x)*weight) <= 46:
-#         return True
-#     else:
-#         return False
-
-
-
-# if __name__ == "__main__":
-#     model = PSO(12, target_func, restrict_func=restrict_func, random_scale=50, random_bias=0, c2=0.25)
-#     model.run(iter=10000, scale=1)
+# model = PSO(2, shubert, random_scale=1, w=0.5, N = 100)
+# model.run(3000, scale=0.05)
