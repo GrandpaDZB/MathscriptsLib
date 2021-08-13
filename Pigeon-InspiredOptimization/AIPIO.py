@@ -81,7 +81,7 @@ class PIO():
             if have_candidate:
                 Competitiveness_gbest = np.sum(self.Fit)
                 Competitiveness_candidate = np.sum(self.f_cand)
-                #if Competitiveness_candidate < Competitiveness_gbest:
+                # if Competitiveness_candidate < Competitiveness_gbest:
                 self.Xg = candidate
                     # print("==============================")
                     # print("change to a candidate")
@@ -134,20 +134,22 @@ class PIO():
 
         
         
-# def shubert(x):
-#     z1 = (1 * np.cos((1 + 1) * x[0] + 1)) + (2 * np.cos((2 + 1) * x[0] + 2)) + (3 * np.cos((3 + 1) * x[0] + 3)) + (
-#             4 * np.cos((4 + 1) * x[0] + 4)) + (5 * np.cos((5 + 1) * x[0] + 5))
-#     z2 = (1 * np.cos((1 + 1) *x[1] + 1)) + (2 * np.cos((2 + 1) *x[1] + 2)) + (3 * np.cos((3 + 1) *x[1] + 3)) + (
-#             4 * np.cos((4 + 1) *x[1] + 4)) + (5 * np.cos((5 + 1) *x[1] + 5))
-#     return -(z1*z2)
-# def target_func(x):
-#     return 0.5+((np.math.pow(np.math.sin(sqrt(x[0]*x[0]+x[1]*x[1])),2)-0.5)/np.math.pow((1+0.001*(x[0]*x[0]+x[1]*x[1])),2))
-# def restrict_func(x):
-#     if abs(x[0]) > 1 or abs(x[1]) > 1:
-#         return False
-#     else:
-#         return True
-# model = PIO(2, shubert, random_scale=1, restrict_func=restrict_func)
-# model.run(1000,1000)
+def shubert(x):
+    z1 = (1 * np.cos((1 + 1) * x[0] + 1)) + (2 * np.cos((2 + 1) * x[0] + 2)) + (3 * np.cos((3 + 1) * x[0] + 3)) + (
+            4 * np.cos((4 + 1) * x[0] + 4)) + (5 * np.cos((5 + 1) * x[0] + 5))
+    z2 = (1 * np.cos((1 + 1) *x[1] + 1)) + (2 * np.cos((2 + 1) *x[1] + 2)) + (3 * np.cos((3 + 1) *x[1] + 3)) + (
+            4 * np.cos((4 + 1) *x[1] + 4)) + (5 * np.cos((5 + 1) *x[1] + 5))
+    return -(z1*z2)
+def target_func(x):
+    return 0.5+((np.math.pow(np.math.sin(sqrt(x[0]*x[0]+x[1]*x[1])),2)-0.5)/np.math.pow((1+0.001*(x[0]*x[0]+x[1]*x[1])),2))
+def restrict_func(x):
+    if abs(x[0]) > 1 or abs(x[1]) > 1:
+        return False
+    else:
+        return True
+model = PIO(2, shubert, random_scale=1, restrict_func=restrict_func)
+model.run(1000,1000)
+
+
 
 
