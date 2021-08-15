@@ -1,12 +1,6 @@
 
 
 import tensorflow as tf
-from tensorflow.python.keras import activations
-from tensorflow.python.keras.layers.core import Dense, Dropout
-from tensorflow.python.ops.nn_ops import dropout
-from tensorflow_datasets.text import drop
-tf.compat.v1.enable_eager_execution()
-from tensorflow._api.v2 import test
 import tensorflow_datasets as tfds
 from tensorflow import keras
 from tensorflow.keras import layers
