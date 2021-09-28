@@ -18,9 +18,12 @@ if gpus:
   except RuntimeError as e:
     # Virtual devices must be set before GPUs have been initialized
     print(e)
-
 tf.debugging.set_log_device_placement(True)
-(train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
+
+
+
+# (train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
+(train_images, train_labels), (test_images, test_labels) = datasets.mnist.load_data()
 
 # 将像素的值标准化至0到1的区间内。
 train_images, test_images = train_images / 255.0, test_images / 255.0
@@ -43,7 +46,7 @@ train_images, test_images = train_images / 255.0, test_images / 255.0
 
 
 
-X = tf.random.uniform(shape=(1, 32, 32, 3))
+X = tf.random.uniform(shape=(1, 28, 28, 1))
 model = RM.ResNet(X)
 
 y = model(X)

@@ -4,7 +4,7 @@ import numpy as np
 
 class PIO():
     def __init__ (self, dim, target_func, restrict_func = None, 
-                  R=0.3, N=40, 
+                  R=0.3, N=100, 
                   random_scale=1.0, random_bias=0.0):
         self.dim = dim
         self.target_func = target_func
@@ -148,7 +148,7 @@ def restrict_func(x):
     else:
         return True
 model = PIO(2, shubert, random_scale=1, restrict_func=restrict_func)
-model.run(1000,1000)
+model.run(2000,1000)
 
 
 

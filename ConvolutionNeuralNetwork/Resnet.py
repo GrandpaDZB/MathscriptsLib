@@ -79,7 +79,7 @@ def ResNet(input_):
     inputs = tf.keras.layers.Input(shape=input_.shape[1:])
 
     model = [
-        layers.Conv2D(64, kernel_size=7, strides=2, padding='same', input_shape=(32,32)),
+        layers.Conv2D(64, kernel_size=7, strides=2, padding='same', input_shape=input_.shape[1:-1]),
         layers.BatchNormalization(),
         layers.Activation('relu'),
         layers.MaxPool2D(pool_size=3, strides=2, padding='same'),
