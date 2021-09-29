@@ -166,17 +166,17 @@ for iteration in range(max_iteration):
         W = W*(1/(zero_number(s_w[t])))
     # black player    
     G, W = 0, 1
-    T = len(r_w)
+    T = len(r_b)
     for t in range(T-1, -1, -1):
-        state_index = find_state(s_w[t])
-        G += r_w[t]
-        C[state_index, 3*a_w[t][0]+a_w[t][1]] += W
-        Q[state_index, 3*a_w[t][0]+a_w[t][1]] += (W/C[state_index, 3*a_w[t][0]+a_w[t][1]])*(G-Q[state_index, 3*a_w[t][0]+a_w[t][1]])
+        state_index = find_state(s_b[t])
+        G += r_b[t]
+        C[state_index, 3*a_b[t][0]+a_b[t][1]] += W
+        Q[state_index, 3*a_b[t][0]+a_b[t][1]] += (W/C[state_index, 3*a_b[t][0]+a_b[t][1]])*(G-Q[state_index, 3*a_b[t][0]+a_b[t][1]])
         best_action = np.argmax(Q[state_index, :])
-        pi_white[state_index] = best_action
-        if best_action != 3*a_w[t][0]+a_w[t][1]:
+        pi_black[state_index] = best_action
+        if best_action != 3*a_b[t][0]+a_b[t][1]:
             break
-        W = W*(1/(zero_number(s_w[t])))
+        W = W*(1/(zero_number(s_b[t])))
     diff = np.sum(np.abs(Q_old - Q))
     print(f'finish: {(iteration+1)*100/max_iteration}%')
     print(f'diff = {diff}')
@@ -187,3 +187,4 @@ with open("./QandC.pkl", "wb") as f:
     pkl.dump([Q, C], f)
     print("Save Value matrix")
 # 空棋盘位置在3448
+
