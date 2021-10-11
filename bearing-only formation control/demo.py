@@ -97,7 +97,7 @@ model.import_H(H)
 
 # build random initial p in a circle
 rand_r = np.random.random(4)*5.0
-rand_theta = np.random.random(4)*3.1415926*2
+rand_theta = np.random.random(4)*3.1415926*2.0
 p = []
 for i in range(4):
     p.append(rand_r[i]*m.cos(rand_theta[i]))
@@ -119,15 +119,26 @@ diff = np.sum(np.abs(model.g-model.g_exp))
 # simulation
 epsilon = 1.0
 history = [np.copy(model.p)]
-while diff > 0.1:
-    v = -model.compute_v(diag_P)
+while diff > 0.001:
+# if True:
+    v = model.compute_v(diag_P)
     new_p = model.p + epsilon*v
     model.p = np.copy(new_p)
-    [model.e, model.e_norm, model.g] = model.compute_e(p)
-    [R_p,diag_P] = model.R_p_and_diagP(p)
+    [model.e, model.e_norm, model.g] = model.compute_e(model.p)
+    [R_p,diag_P] = model.R_p_and_diagP(model.p)
     diff = np.sum(np.abs(model.g-model.g_exp))
     history.append(np.copy(model.p))
     print(f'diff={diff}')
+
+
+History = np.array(history)
+plt.figure()
+plt.plot(History[:,0], History[:,1],History[:,2], History[:,3] ,History[:,4], History[:,5],History[:,6], History[:,7], color='lightgray'  )
+plt.plot([History[0,0],History[0,2],History[0,4],History[0,6]], [History[0,1],History[0,3],History[0,5],History[0,7]], 'o', color='lightgray')
+plt.plot([History[-1,0],History[-1,2],History[-1,4],History[-1,6]], [History[-1,1],History[-1,3],History[-1,5],History[-1,7]], 'o', color='steelblue')
+plt.axis('equal')
+plt.show()
+
     
 
 
