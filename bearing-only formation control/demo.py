@@ -17,6 +17,11 @@ def eye_matrix(list_m):
         index += m
     return eye_m
         
+def build_random_p(n, dim, r = 5, o = [0,0]):
+    p = []
+    for i in range(n*dim):
+        pass
+
 
 class controller:
     def __init__(self):
@@ -32,11 +37,30 @@ class controller:
         self.e_norm = []
         self.g = []
         self.g_exp = []
+        self.centroid_init = []
+        self.scale_init = []
         pass
+
+    # points list is supposed to start from 0
+    def build_H(self, start_points, end_points):
+        n = max(start_points)+1
+        m = len(start_points)
+        H = np.zeros((m,n))
+        for i in range(m):
+            H[i, start_points[i]] = -1
+            H[i, end_points[i]] = 1
+        return H
+            
+
+    def set_dim(self, dim):
+        self.dim = dim
+        return
 
     # matrix H would form G
     def import_H(self, H):
         self.H = H
+        (self.m, self.n) = H.shape
+        self.Id = np.eye(self.dim)
         self.H_bar = np.kron(H,self.Id)
         return
 
@@ -44,6 +68,7 @@ class controller:
     def import_initial_p(self, p):
         self.p = p
         self.p_init = p
+        [self.centroid_init, _,_,self.scale_init] = self.compute_centroid_scale(p)
         return
 
     # compute e after import H and p
@@ -52,10 +77,10 @@ class controller:
         g = np.copy(e)
         e_norm = []
         for i in range(self.m):
-            norm_e = np.linalg.norm([e[2*i],e[2*i+1]])
+            norm_e = np.linalg.norm([e[self.dim*i],e[self.dim*i+1]])
             e_norm.append(norm_e)
-            g[2*i] = e[2*i]/norm_e
-            g[2*i+1] = e[2*i+1]/norm_e
+            for d in range(self.dim):
+                g[self.dim*i+d] = e[self.dim*i+d]/norm_e
         return [e, e_norm, g]
 
     def P_x(self, x):
@@ -69,7 +94,7 @@ class controller:
         tmp_diag = []
         [e, e_norm, g] = self.compute_e(p)
         for i in range(self.m):
-            gk = np.array([g[2*i], g[2*i+1]])
+            gk = np.array([g[self.dim*i+d] for d in range(self.dim)])
             Pgk = self.P_x(gk)
             tmp_diag.append(Pgk/e_norm[i])
         tmp_diag = eye_matrix(tmp_diag)
@@ -79,21 +104,83 @@ class controller:
     def import_g_exp(self, g_exp):
         self.g_exp = np.copy(g_exp)
         for i in range(self.m):
-            norm_g = np.linalg.norm([g_exp[2*i],g_exp[2*i+1]])
-            self.g_exp[2*i] = g_exp[2*i]/norm_g
-            self.g_exp[2*i+1] = g_exp[2*i+1]/norm_g
+            norm_g = np.linalg.norm([g_exp[self.dim*i+d] for d in range(self.dim)])
+            for d in range(self.dim):
+                self.g_exp[self.dim*i+d] = g_exp[self.dim*i+d]/norm_g
         return
 
     def compute_v(self, diag_P):
         v = self.H_bar.T@diag_P@self.g_exp
         return v
 
+    def p_exp2g_exp(self, p_exp):
+        [_,_,g_exp] = self.compute_e(p_exp)
+        [R_p_exp, _] = self.R_p_and_diagP(p_exp)
+        is_infinitesimal_bearing_rigid = True
+        if np.linalg.matrix_rank(R_p_exp) == self.dim*self.n - self.dim - 1:
+            is_infinitesimal_bearing_rigid = True
+        else:
+            is_infinitesimal_bearing_rigid = False
+        return [g_exp, is_infinitesimal_bearing_rigid]
+
+    def plot2D(self, history):
+        History = np.array(history)
+        plt.figure()
+        for i in range(self.n):
+            plt.plot(History[:,self.dim*i], History[:,self.dim*i+1],'lightgray')
+        init_p = [[] for _ in range(self.dim)]
+        for i in range(self.n):
+            for j in range(self.dim):
+                init_p[j].append(History[0,self.dim*i+j])
+        plt.plot(init_p[0], init_p[1],'o',color='lightgray')
+        end_p = [[] for _ in range(self.dim)]
+        for i in range(self.n):
+            for j in range(self.dim):
+                end_p[j].append(History[-1,self.dim*i+j])
+        plt.plot(end_p[0], end_p[1],'o',color='steelblue')
+        for i in range(self.m):
+            hline = self.H[i,:]
+            start_point = 0
+            end_point = 0
+            for j in range(self.n):
+                if hline[j] == -1:
+                    start_point = j
+                if hline[j] == 1:
+                    end_point = j
+            plt.plot(
+                [end_p[0][start_point], end_p[0][end_point]], 
+                [end_p[1][start_point], end_p[1][end_point]], 
+                'lightblue'
+            )
+        plt.axis('equal')
+        plt.show()
+
+    def compute_centroid_scale(self, p):
+        centroid = np.zeros(self.dim)
+        for i in range(self.n):
+            centroid = (i/(i+1))*centroid + (1/(i+1))*p[self.dim*i:(self.dim*i+self.dim)]
+        scale = 0
+        for i in range(self.n):
+            scale = ((i/(i+1))*scale) + (1/(i+1))*np.dot(p[self.dim*i:(self.dim*i+self.dim)]-centroid,p[self.dim*i:(self.dim*i+self.dim)]-centroid)
+        scale = m.sqrt(scale)
+
+        one = np.ones((self.n, 1))
+        centroid2 = np.kron(one, self.Id).T@p/self.n
+        scale2 = np.linalg.norm(np.reshape(p,[self.dim*self.n,1])-np.kron(one, np.reshape(centroid2, [self.dim, 1])))/m.sqrt(self.n)
+        return [centroid, scale, centroid2, scale2]
+
+
+
 
 model = controller()
 
 # import H
-H = np.array([[-1,1,0,0],[-1,0,1,0],[-1,0,0,1],[0,-1,0,1],[0,0,-1,1]])
+start_points = [0,0,1,1,2,2,3,3,4,4,5,5]
+end_points = [1,2,2,3,3,4,4,5,5,0,0,1]
+H = model.build_H(start_points, end_points)
+# H = np.array([[-1,1,0,0],[-1,0,1,0],[-1,0,0,1],[0,-1,0,1],[0,0,-1,1]])
 model.import_H(H)
+model.set_dim(2)
 
 # build random initial p in a circle
 rand_r = np.random.random(4)*5.0
@@ -130,15 +217,9 @@ while diff > 0.001:
     history.append(np.copy(model.p))
     print(f'diff={diff}')
 
-
-History = np.array(history)
-plt.figure()
-plt.plot(History[:,0], History[:,1],History[:,2], History[:,3] ,History[:,4], History[:,5],History[:,6], History[:,7], color='lightgray'  )
-plt.plot([History[0,0],History[0,2],History[0,4],History[0,6]], [History[0,1],History[0,3],History[0,5],History[0,7]], 'o', color='lightgray')
-plt.plot([History[-1,0],History[-1,2],History[-1,4],History[-1,6]], [History[-1,1],History[-1,3],History[-1,5],History[-1,7]], 'o', color='steelblue')
-plt.axis('equal')
-plt.show()
-
+model.plot2D(history)
     
+[centroid, scale, centroid2, scale2] = model.compute_centroid_scale(model.p)
+
 
 
