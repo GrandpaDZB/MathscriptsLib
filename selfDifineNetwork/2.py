@@ -83,7 +83,7 @@ description: Model和Layer看似是相同的，但是Model开放了训练，对�
 param {*}
 return {*}
 '''
-class myModel_1(keras.layers.Model):
+class myModel_1(keras.Model):
     def __init__(self):
         super(myModel_1, self).__init__()
         self.block_1 = myBlock_1()
@@ -91,10 +91,6 @@ class myModel_1(keras.layers.Model):
     def call(self, inputs):
         x = self.block_1(inputs)
         return x
-
-
-
-        
 
 
 
