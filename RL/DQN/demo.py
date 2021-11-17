@@ -37,16 +37,16 @@ model = keras.Sequential([
 
 model(np.ones([1,5]))
 # model = keras.models.load_model("cartpole_model_with_TD(lambda)_60000steps.h5")
-optimizer = keras.optimizers.RMSprop(learning_rate = 0.001)
+optimizer = keras.optimizers.RMSprop(learning_rate = 0.0005)
 model.summary()
 
 
 programing_times = 64
 replay_memory_length = 10000
 replay_memory = []
-gamma = 0.99
-tao = 0.8
-Epsilon = 1.0
+gamma = 0.7
+tao = 0.2
+Epsilon = 0.8
 Epsilon_decay_rate = 0.005
 Epsilon_min = 0.01
 
@@ -65,9 +65,13 @@ for episode in range(max_episode_num):
     while True:
 
         action = greedy_action(model, state, Epsilon)
+        if Epsilon > Epsilon_min:
+            Epsilon = Epsilon*(1-Epsilon_decay_rate)
+        else:
+            Epsilon = Epsilon_min
         state_next, reward, done, _ = env.step(action)
         if done and step < 300:
-            reward = 0
+            reward = -10
         step += 1
 
         # store transition (St, At, R, St+1, done) in replay_memory
@@ -116,70 +120,65 @@ for episode in range(max_episode_num):
         # for i in range(len(grad)):
         #     grad[i] = -grad[i]
         optimizer.apply_gradients(zip(grad, model.trainable_variables))
+        # print(f'=>loss: {loss}')
+        # with tf.GradientTape() as tape:
+        #     loss = 0
+        #     for i in range(len(y)):
+        #         loss = (i/(i+1))*loss + (1/(i+1))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))
 
-        with tf.GradientTape() as tape:
-            loss = 0
-            for i in range(len(y)):
-                loss = (i/(i+1))*loss + (1/(i+1))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))
+        # grad = tape.gradient(loss, model.trainable_variables)
+        # # for i in range(len(grad)):
+        # #     grad[i] = -grad[i]
+        # optimizer.apply_gradients(zip(grad, model.trainable_variables))
+        # print(f'=>loss: {loss}')
+        # with tf.GradientTape() as tape:
+        #     loss = 0
+        #     for i in range(len(y)):
+        #         loss = (i/(i+1))*loss + (1/(i+1))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))
 
-        grad = tape.gradient(loss, model.trainable_variables)
-        # for i in range(len(grad)):
-        #     grad[i] = -grad[i]
-        optimizer.apply_gradients(zip(grad, model.trainable_variables))
+        # grad = tape.gradient(loss, model.trainable_variables)
+        # # for i in range(len(grad)):
+        # #     grad[i] = -grad[i]
+        # optimizer.apply_gradients(zip(grad, model.trainable_variables))
+        # print(f'=>loss: {loss}')
+        # with tf.GradientTape() as tape:
+        #     loss = 0
+        #     for i in range(len(y)):
+        #         loss = (i/(i+1))*loss + (1/(i+1))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))
 
-        with tf.GradientTape() as tape:
-            loss = 0
-            for i in range(len(y)):
-                loss = (i/(i+1))*loss + (1/(i+1))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))
+        # grad = tape.gradient(loss, model.trainable_variables)
+        # # for i in range(len(grad)):
+        # #     grad[i] = -grad[i]
+        # optimizer.apply_gradients(zip(grad, model.trainable_variables))
+        # print(f'=>loss: {loss}')
+        # with tf.GradientTape() as tape:
+        #     loss = 0
+        #     for i in range(len(y)):
+        #         loss = (i/(i+1))*loss + (1/(i+1))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))
 
-        grad = tape.gradient(loss, model.trainable_variables)
-        # for i in range(len(grad)):
-        #     grad[i] = -grad[i]
-        optimizer.apply_gradients(zip(grad, model.trainable_variables))
-
-        with tf.GradientTape() as tape:
-            loss = 0
-            for i in range(len(y)):
-                loss = (i/(i+1))*loss + (1/(i+1))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))
-
-        grad = tape.gradient(loss, model.trainable_variables)
-        # for i in range(len(grad)):
-        #     grad[i] = -grad[i]
-        optimizer.apply_gradients(zip(grad, model.trainable_variables))
-
-        with tf.GradientTape() as tape:
-            loss = 0
-            for i in range(len(y)):
-                loss = (i/(i+1))*loss + (1/(i+1))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))
-
-        grad = tape.gradient(loss, model.trainable_variables)
-        # for i in range(len(grad)):
-        #     grad[i] = -grad[i]
-        optimizer.apply_gradients(zip(grad, model.trainable_variables))
-
+        # grad = tape.gradient(loss, model.trainable_variables)
+        # # for i in range(len(grad)):
+        # #     grad[i] = -grad[i]
+        # optimizer.apply_gradients(zip(grad, model.trainable_variables))
+        # print(f'=>loss: {loss}')
         # ============================================================== END GD
         
-        if Epsilon > Epsilon_min:
-            Epsilon = Epsilon*(1-Epsilon_decay_rate)
-        else:
-            Epsilon = Epsilon_min
+        
         for i in range(len(old_theta)):
             old_theta[i] = tao*old_theta[i] + (1-tao)*model.get_weights()[i]
-        print(f'loss: {loss}')
-        with tf.GradientTape() as tape:
-            loss = 0
-            for i in range(len(y)):
-                loss = (i/(i+1))*loss + (1/(i+1))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))*(y[i]-model(np.reshape(np.hstack([e[i][0], e[i][1]]), (1,5))))
-        print(f'=>loss: {loss}')
+        # print(f'loss: {loss}')
+
         if done:
             print(f'step: {step}')
             print(f'loss: {loss}')
+            print(f'epsilon: {Epsilon}')
             break
                 
-            
+
+model.save("test.h5")
 
 x = np.linspace(-2.4, 2.4, 50)
-y = np.linspace(-0.318, 0.318, 50)
+y = np.linspace(-0.208, 0.208, 50)
 Q0 = np.zeros((50,50))
 Q1 = np.zeros((50,50))
 for i in range(50):
