@@ -10,20 +10,20 @@ import random
 max_score = 0
 max_episode = 300
 
-gamma = 1.0
+gamma = 0.95
 epsilon = 1.0
 epsilon_min = 0.01
-epsilon_decay = 0.999
+epsilon_decay = 0.8
 
 alpha = 0.01 # learning rate
-alpha_decay = 0.01
+alpha_decay = 0.000001
 
-batch_size = 256
+batch_size = 32
 
 
 memory = deque(maxlen=100000)
 env = gym.make('CartPole-v1')
-env._max_episode_steps = 500
+env._max_episode_steps = 1000
 
 
 model = keras.Sequential(
@@ -34,12 +34,14 @@ model = keras.Sequential(
         keras.layers.Dense(96, activation='relu'),
         keras.layers.Dense(48, activation='relu'),
         keras.layers.Dense(24, activation='relu'),
-        keras.layers.Dense(2, activation='relu')
+        keras.layers.Dense(2)
     ]
 )
 model.compile(
     loss = keras.losses.MSE,
-    optimizer = keras.optimizers.Adam(alpha, decay = alpha_decay)
+    optimizer = keras.optimizers.Adam(alpha)
+    # optimizer = keras.optimizers.Adam(alpha, decay = alpha_decay)
+    
 )
 model(np.zeros((1,4)))
 model.summary()
@@ -66,6 +68,7 @@ def preprocess(state):
 def replay(batch_size, epsilon):
     global weight_t
     global weight
+    global model
     x_batch = []
     y_batch = []
     minibatch = random.sample(memory, min(len(memory), batch_size))
@@ -104,15 +107,26 @@ def run():
             next_state = preprocess(next_state)
             remember(state, action, reward, next_state, done)
             state = next_state
+            replay(batch_size, get_epsilon(e))
             i += 1
         print(f'Episode = {e+1}\tStep = {i}\tEpsilon = {get_epsilon(e)}')
-        replay(batch_size, get_epsilon(e))
-        if chg_counter > 5:
+        
+        if chg_counter > 0:
             weight_t = weight
             chg_counter = 0
         if save_counter > 40:
             model.save(f'./test.h5')
             save_counter = 0
         
-
 run()
+
+
+state = env.reset()
+done = False
+state = preprocess(state)
+while not done:
+    action = choose_action(state, 0)
+    state, reward, done, _ = env.step(action)
+    env.render()
+    state = preprocess(state)
+env.close()
