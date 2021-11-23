@@ -5,11 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import gym
 
-batch_size = 32
-forward_step = 5
 
 epsilon = 1.0
-epsilon_decay = 0.999
+epsilon_decay = 0.99
 
 gamma = 0.9
 
@@ -17,34 +15,18 @@ gamma = 0.9
 
 env = gym.make('CartPole-v1')
 env._max_episode_steps = 1000
-# the outputs of Actor are logits
-Actor = keras.Sequential([
+# the outputs are [logits, V]
+Actor_Critic = keras.Sequential([
     keras.layers.Dense(32, activation="relu"),
     keras.layers.Dense(64, activation="relu"),
     keras.layers.Dense(128, activation="relu"),
+    keras.layers.Dense(128, activation="relu"),
     keras.layers.Dense(64, activation="relu"),
     keras.layers.Dense(32, activation="relu"),
-    keras.layers.Dense(2)
+    keras.layers.Dense(3)
 ])
-Actor(np.random.random((1,4)))
-optimizer_Actor = keras.optimizers.Adam(learning_rate=0.001, decay=0.0001)
-
-# the output of Critic is the Value estimation of state
-Critic = keras.Sequential([
-    keras.layers.Dense(32, activation='relu'),
-    keras.layers.Dense(64, activation='relu'),
-    keras.layers.Dense(128, activation='relu'),
-    keras.layers.Dense(64, activation='relu'),
-    keras.layers.Dense(32, activation='relu'),
-    keras.layers.Dense(1)    
-])
-Critic(np.random.random((1,4)))
-optimizer_Critic = keras.optimizers.Adam(learning_rate=0.05, decay=0.0001)
-
-Critic.compile(
-    optimizer=keras.optimizers.Adam(learning_rate=0.01),
-    loss=keras.losses.MSE
-)
+Actor_Critic(np.random.random((1,4)))
+optimizer = keras.optimizers.Adam(learning_rate=0.1, decay=0.0001)
 
 # action - (N*T) * Da tensor of actions
 # states - (N*T) * Ds tensor of states
@@ -53,13 +35,13 @@ def optimize_Actor(actions, states, A_values):
     global Actor
     global optimizer_Actor
     with tf.GradientTape() as tape:
-        logits = Actor(states)
+        logits = Actor_Critic(states)[:, 0:2]
         negative_likelyhood = tf.nn.softmax_cross_entropy_with_logits(actions, logits)
         weighted_likelyhood = tf.multiply(negative_likelyhood, A_values)
         loss = tf.reduce_mean(weighted_likelyhood)
-    gradients = tape.gradient(loss, Actor.trainable_variables)
+    gradients = tape.gradient(loss, Actor_Critic.trainable_variables)
     print(f'Actor loss: {loss}')
-    optimizer_Actor.apply_gradients(zip(gradients, Actor.trainable_variables))
+    optimizer.apply_gradients(zip(gradients, Actor_Critic.trainable_variables))
     return
     
 # states - (N*T) * Ds tensor of states
@@ -70,15 +52,19 @@ def optimize_Critic(states, accumulated_rewards):
     global optimize_Critic
     # Critic.fit(states, accumulated_rewards)
     with tf.GradientTape() as tape2:
-        old = Critic(states)
-        err = accumulated_rewards - old
-        loss = tf.matmul(tf.transpose(err), err)
+        old = Actor_Critic(states)[:,-1]
+        # new = np.copy(old)
+        # new[:, -1] = np.resize(accumulated_rewards, (batch_size))
+        # err = new-old
+        err = accumulated_rewards-old
+        loss = tf.reduce_mean(tf.multiply(err, err))
+        # loss = tf.reduce_mean(tf.multiply(err,err))
         # loss = tf.reduce_sum(loss)
         # loss = tf.multiply(err, err)
-    gradients = tape2.gradient(loss, Critic.trainable_variables)
+    gradients = tape2.gradient(loss, Actor_Critic.trainable_variables)
 
     print(f'Critic loss: {loss}')
-    optimizer_Critic.apply_gradients(zip(gradients, Critic.trainable_variables))
+    optimizer.apply_gradients(zip(gradients, Actor_Critic.trainable_variables))
     return
 
 def preprocess(state):
@@ -95,7 +81,7 @@ def choose_action(state, epsilon):
     if np.random.rand() < epsilon:
         return env.action_space.sample()
     else:
-        return np.argmax(Actor.predict(state))
+        return np.argmax(Actor_Critic.predict(state)[0,0:2])
 
 def apply_epsilon_decay():
     global epsilon
@@ -163,7 +149,7 @@ for episode in range(max_episode):
         if done:
             batch_size = len(actions)
             accumulated_reward = 0
-            accumulated_rewards = np.zeros((batch_size,1))
+            accumulated_rewards = np.zeros((batch_size,))
             for i in range(batch_size):
                 accumulated_reward = rewards[batch_size-1-i] + gamma*accumulated_reward
                 # for j in range(forward_step):
@@ -179,11 +165,11 @@ for episode in range(max_episode):
             optimize_Critic(states, accumulated_rewards)
             for i in range(batch_size):
                 if dones[i]:
-                    A_values.append(np.array([[0]]))
+                    A_values.append(0)
                 elif i+1 < batch_size:
-                    A_values.append(rewards[i]+Critic.predict(np.resize(states[i+1,:], (1,4)))-Critic.predict(np.resize(states[i,:], (1,4))))
+                    A_values.append(rewards[i]+Actor_Critic.predict(np.resize(states[i+1,:], (1,4)))[0,-1]-Actor_Critic.predict(np.resize(states[i,:], (1,4)))[0,-1])
                 else:
-                    A_values.append(np.array([[0]]))
+                    A_values.append(0)
             actions = np.array(actions)
             A_values = np.array(A_values)
             A_values = np.resize(A_values, (batch_size,))
@@ -193,15 +179,12 @@ for episode in range(max_episode):
     if save_counter >= 20:
         with open("./history.pkl", 'wb') as f:
             pkl.dump(history, f)
-        Actor.save_weights("./Actor_weights.h5")
-        Critic.save_weights("./Critic_weights.h5")
-        
+        Actor_Critic.save_weights("./Actor_Critic_weights.h5")        
 
             
 
-print(Critic(states))
+print(Actor_Critic.predict(states))
 print(accumulated_rewards)
-print(Actor(states))
-print(tf.nn.softmax(Actor(states)))
+print(tf.nn.softmax((Actor_Critic.predict(states)[:,0:2])))
 
 

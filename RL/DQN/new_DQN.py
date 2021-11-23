@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import deque
 import random
+import pickle as pkl
 
 max_score = 0
 max_episode = 300
@@ -16,12 +17,12 @@ epsilon_min = 0.01
 epsilon_decay = 0.8
 
 alpha = 0.01 # learning rate
-alpha_decay = 0.000001
+alpha_decay = 0.001
 
 batch_size = 32
 
 
-memory = deque(maxlen=100000)
+memory = deque(maxlen=10000)
 env = gym.make('CartPole-v1')
 env._max_episode_steps = 1000
 
@@ -39,8 +40,8 @@ model = keras.Sequential(
 )
 model.compile(
     loss = keras.losses.MSE,
-    optimizer = keras.optimizers.Adam(alpha)
-    # optimizer = keras.optimizers.Adam(alpha, decay = alpha_decay)
+    # optimizer = keras.optimizers.Adam(alpha)
+    optimizer = keras.optimizers.Adam(alpha, decay = alpha_decay)
     
 )
 model(np.zeros((1,4)))
@@ -88,7 +89,9 @@ def replay(batch_size, epsilon):
     if epsilon > epsilon_min:
         epsilon *= epsilon_decay
 
+history = []
 def run():
+    global history
     global max_score
     global weight
     global weight_t
@@ -110,11 +113,14 @@ def run():
             replay(batch_size, get_epsilon(e))
             i += 1
         print(f'Episode = {e+1}\tStep = {i}\tEpsilon = {get_epsilon(e)}')
+        history.append(i)
+        with open("./history.pkl",  'wb') as f:
+            pkl.dump(history, f)
         
         if chg_counter > 0:
             weight_t = weight
             chg_counter = 0
-        if save_counter > 40:
+        if save_counter > 20:
             model.save(f'./test.h5')
             save_counter = 0
         
