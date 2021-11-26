@@ -5,186 +5,205 @@ import matplotlib.pyplot as plt
 import numpy as np
 import gym
 
-
-epsilon = 1.0
-epsilon_decay = 0.99
-
 gamma = 0.9
-
+last_state = np.zeros((1,4))
+last_done = False
 
 
 env = gym.make('CartPole-v1')
+env_test = gym.make('CartPole-v1')
 env._max_episode_steps = 1000
+env_test._max_episode_steps = 10000
 # the outputs are [logits, V]
 Actor_Critic = keras.Sequential([
     keras.layers.Dense(32, activation="relu"),
-    keras.layers.Dense(64, activation="relu"),
-    keras.layers.Dense(128, activation="relu"),
-    keras.layers.Dense(128, activation="relu"),
-    keras.layers.Dense(64, activation="relu"),
+    # keras.layers.Dense(64, activation="relu"),
+    # keras.layers.Dense(128, activation="relu"),
+    # keras.layers.Dense(128, activation="relu"),
+    # keras.layers.Dense(64, activation="relu"),
     keras.layers.Dense(32, activation="relu"),
     keras.layers.Dense(3)
 ])
 Actor_Critic(np.random.random((1,4)))
-optimizer = keras.optimizers.Adam(learning_rate=0.1, decay=0.0001)
+# 0.008/0.008 for 32/32/3, gamma = 0.9
+# 0.002/0.001 for 32/64/128/128/64/32/3 gamma = 0.9
+optimizer1 = keras.optimizers.Adam(learning_rate=0.012)
+optimizer2 = keras.optimizers.Adam(learning_rate=0.012)
 
 # action - (N*T) * Da tensor of actions
 # states - (N*T) * Ds tensor of states
 # A_values - (N*T) * 1 tensor of estimated advantage function
-def optimize_Actor(actions, states, A_values):
-    global Actor
-    global optimizer_Actor
+def optimize_Actor(actions, states, Advan):
+    global Actor_Critic
+    global optimizer
     with tf.GradientTape() as tape:
         logits = Actor_Critic(states)[:, 0:2]
         negative_likelyhood = tf.nn.softmax_cross_entropy_with_logits(actions, logits)
-        weighted_likelyhood = tf.multiply(negative_likelyhood, A_values)
+        weighted_likelyhood = tf.multiply(negative_likelyhood, Advan)
         loss = tf.reduce_mean(weighted_likelyhood)
     gradients = tape.gradient(loss, Actor_Critic.trainable_variables)
-    print(f'Actor loss: {loss}')
-    optimizer.apply_gradients(zip(gradients, Actor_Critic.trainable_variables))
+    optimizer2.apply_gradients(zip(gradients, Actor_Critic.trainable_variables))
     return
     
 # states - (N*T) * Ds tensor of states
 # accumulated_rewards - (N*T) * 1 tensor of total rewards
-def optimize_Critic(states, accumulated_rewards):
-    global batch_size
-    global Critic
-    global optimize_Critic
-    # Critic.fit(states, accumulated_rewards)
-    with tf.GradientTape() as tape2:
-        old = Actor_Critic(states)[:,-1]
-        # new = np.copy(old)
-        # new[:, -1] = np.resize(accumulated_rewards, (batch_size))
-        # err = new-old
-        err = accumulated_rewards-old
-        loss = tf.reduce_mean(tf.multiply(err, err))
-        # loss = tf.reduce_mean(tf.multiply(err,err))
-        # loss = tf.reduce_sum(loss)
-        # loss = tf.multiply(err, err)
-    gradients = tape2.gradient(loss, Actor_Critic.trainable_variables)
-
-    print(f'Critic loss: {loss}')
-    optimizer.apply_gradients(zip(gradients, Actor_Critic.trainable_variables))
+def optimize_Critic(accumulated_rewards, states):
+    global Actor_Critic
+    global optimizer
+    with tf.GradientTape() as tape:
+        err = keras.losses.mean_squared_error(tf.reshape(accumulated_rewards, (states.shape[0],)),Actor_Critic(states)[:,2])
+        loss = err
+    gradient = tape.gradient(loss, Actor_Critic.trainable_variables)
+    # print(f'Critic loss: {loss}')
+    optimizer1.apply_gradients(zip(gradient, Actor_Critic.trainable_variables))
     return
 
 def preprocess(state):
     return np.resize(state, (1,4))
+def nparray(array, shape):
+    l = np.array(array)
+    return np.reshape(l, shape)
 
-def choose_action(state, epsilon):
+def choose_action(states):
     global env
-    global Actor
-    # policy = Actor.predict(state)
-    # if np.random.rand() < policy[0,0]:
-    #     return 0
-    # else:
-    #     return 1
-    if np.random.rand() < epsilon:
-        return env.action_space.sample()
+    global Actor_Critic
+    policy = tf.nn.softmax(Actor_Critic(states)[:, 0:2])
+    if np.random.rand() < policy[0,0]:
+        return 0
     else:
-        return np.argmax(Actor_Critic.predict(state)[0,0:2])
-
-def apply_epsilon_decay():
-    global epsilon
-    global epsilon_decay
-    if epsilon > 0.01:
-        epsilon *= epsilon_decay
-    else:
-        epsilon = 0.01
-    return
+        return 1
 
 
-actions = []
-states = []
-rewards = []
-accumulated_rewards = []
-dones = []
-A_values = []
-def append_batch(action, state, reward, done):
-    global actions
-    global states
-    global rewards
-    global dones
-    if action == 0:
-        actions.append([1,0])
-    else:
-        actions.append([0,1])
-    states.append(state)
-    rewards.append(reward)
-    dones.append(done)
-def clear_batch():
-    global actions
-    global states
-    global rewards
-    global dones
-    global accumulated_rewards
-    global A_values
-    actions = []
+def sample_by_timesteps(time_steps, policy_weight = None):
+    global Actor_Critic
+    global env
+    global last_state
+    global last_done
+    if policy_weight != None:
+        preserved_weights = Actor_Critic.get_weights()
+        Actor_Critic.set_weights(policy_weight)
     states = []
+    actions = []
     rewards = []
-    accumulated_rewards = []
     dones = []
-    A_values = []
+
+    if last_state.any() == False:
+        state = preprocess(env.reset())
+    else: 
+        state = last_state
+    done = last_done
+    for step in range(time_steps):
+        if not done:
+            states.append(state)
+            action = choose_action(state)
+            state, reward, done, _ = env.step(action)
+            state = preprocess(state)
+            if action == 0:
+                actions.append([1,0])
+            else:
+                actions.append([0,1])
+            rewards.append(reward)
+        else:
+            if len(rewards) != 0:
+                rewards[-1] = 0
+            rewards.append(0)
+            actions.append([0,0])
+            states.append(state)
+            dones.append(step)
+            done = False
+            state = preprocess(env.reset())
+        if step == time_steps-1:
+                last_done = done
+                last_state = state
+    return [nparray(states, (time_steps, 4)), nparray(actions, (time_steps, 2)), np.array(rewards), (dones)]
+
+def compute_accumulated_rewards(rewards, dones, last_state):
+    global gamma
+    global Actor_Critic
+    accumulated_rewards = np.zeros((len(rewards),))
+    for t in range(len(dones)):
+        if t != 0:
+            start_point = dones[t-1] + 1
+        else:
+            start_point = 0
+        end_point = dones[t]
+        for i in range(0,end_point-start_point+1):
+            if i == 0:
+                accumulated_rewards[end_point] = 0
+            else:
+                accumulated_rewards[end_point-i] = accumulated_rewards[end_point+1-i]*gamma + rewards[end_point-i]
+    if dones != [] and dones[-1] != len(rewards)-1:
+        accumulated_rewards[-1] = Actor_Critic.predict(np.reshape(last_state, (1,4)))[0,2]
+        for i in range(len(rewards)-2, dones[-1], -1):
+            accumulated_rewards[i] = gamma*accumulated_rewards[i+1] + rewards[i]
+    return np.reshape(accumulated_rewards, (len(rewards),1))
+
+def estimate_advantage_function(states, rewards, dones):
+    global Actor_Critic
+    A = np.zeros((len(rewards),))
+    V = Actor_Critic(states)[:,2]
+    for i in range(len(A)):
+        if i in dones:
+            A[i] = 0
+        elif i+1 in dones:
+            A[i] = -V[i]
+        elif i == len(A)-1:
+            A[i] = rewards[i]
+        else:
+            A[i] = rewards[i] + V[i+1] - V[i]
+    return A
+
+def test_ave_steps(episode):
+    step = 0
+    ave_step = 0
+    for i in range(episode):
+        state = preprocess(env_test.reset())
+        done = False
+        while not done:
+            step += 1
+            action = choose_action(state)
+            state, _, done, _ = env_test.step(action)
+            state = preprocess(state)
+        ave_step = (i/(i+1))*ave_step + (1/(i+1))*step
+        step = 0
+    return ave_step
 
 
 max_episode = 150
 save_counter = 0
 history = []
-for episode in range(max_episode):
-    save_counter += 1
-    print(f'Episode: {episode+1}')
-    state = preprocess(env.reset())
-    done = False
-    step = 0
-    clear_batch()
-    while not done:
-        step += 1
-        action = choose_action(state, epsilon)
-        apply_epsilon_decay()
-        new_state, reward, done, _ = env.step(action)
-        if done:
-            reward = 0
-        append_batch(action, state, reward, done)
-        state = preprocess(new_state)
-        
-        if done:
-            batch_size = len(actions)
-            accumulated_reward = 0
-            accumulated_rewards = np.zeros((batch_size,))
-            for i in range(batch_size):
-                accumulated_reward = rewards[batch_size-1-i] + gamma*accumulated_reward
-                # for j in range(forward_step):
-                #     if i+j >= batch_size:
-                #         break 
-                #     if dones[i+j]:
-                #         break
-                #     accumulated_reward += np.math.pow(gamma, j)*rewards[i+j]
-                #     if j == forward_step-1:
-                #         accumulated_reward += (np.math.pow(gamma, j+1)*Critic(states[i+j])).numpy()[0,0]
-                accumulated_rewards[batch_size-1-i]=(accumulated_reward)
-            states = np.resize(states, (batch_size, 4))
-            optimize_Critic(states, accumulated_rewards)
-            for i in range(batch_size):
-                if dones[i]:
-                    A_values.append(0)
-                elif i+1 < batch_size:
-                    A_values.append(rewards[i]+Actor_Critic.predict(np.resize(states[i+1,:], (1,4)))[0,-1]-Actor_Critic.predict(np.resize(states[i,:], (1,4)))[0,-1])
-                else:
-                    A_values.append(0)
-            actions = np.array(actions)
-            A_values = np.array(A_values)
-            A_values = np.resize(A_values, (batch_size,))
-            optimize_Actor(actions, states, A_values)
-    print(f'Step: {step}')
-    history.append(step)
-    if save_counter >= 20:
-        with open("./history.pkl", 'wb') as f:
-            pkl.dump(history, f)
-        Actor_Critic.save_weights("./Actor_Critic_weights.h5")        
 
-            
 
-print(Actor_Critic.predict(states))
-print(accumulated_rewards)
-print(tf.nn.softmax((Actor_Critic.predict(states)[:,0:2])))
+for iteration in range(300):
+    states, actions, rewards, dones = sample_by_timesteps(200)
+    accumulated_rewards = compute_accumulated_rewards(rewards, dones, states[-1])
+    for _ in range(20):
+        optimize_Critic(accumulated_rewards,states)
+    Advan = estimate_advantage_function(states, rewards, dones)
+    for _ in range(1):
+        optimize_Actor(actions, states, Advan)
+    step = test_ave_steps(2)
+    print(f'Iter: {iteration+1}')
+    print(f'Averages step: {step}')
 
+x = np.linspace(-2.4, 2.4, 50)
+y = np.linspace(-0.2, 0.2, 50)
+Q0 = np.zeros((50,50,2))
+for i in range(50):
+    for j in range(50):
+        Q0[i,j] = tf.nn.softmax(Actor_Critic(np.array([[x[i], 0, y[j], 0]]))[:,0:2])
+X, Y = np.meshgrid(x, y)
+fig = plt.figure()
+ax3 = plt.axes(projection='3d')
+ax3.view_init(60, 35)
+ax3.set_xlabel('Position')
+ax3.set_ylabel('angle')
+ax3.set_zlabel('value')
+ax3.plot_surface(X,Y,Q0[:,:,1]-Q0[:,:,0],cmap='binary')
+
+states, actions, rewards, dones = sample_by_timesteps(200)
+accumulated_rewards = compute_accumulated_rewards(rewards, dones, states[-1])
+for _ in range(100):
+    optimize_Critic(accumulated_rewards, states)
+Advan = estimate_advantage_function(states, rewards, dones)
 
