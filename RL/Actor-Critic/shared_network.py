@@ -27,8 +27,8 @@ Actor_Critic = keras.Sequential([
 Actor_Critic(np.random.random((1,4)))
 # 0.008/0.008 for 32/32/3, gamma = 0.9
 # 0.002/0.001 for 32/64/128/128/64/32/3 gamma = 0.9
-optimizer1 = keras.optimizers.Adam(learning_rate=0.012)
-optimizer2 = keras.optimizers.Adam(learning_rate=0.012)
+optimizer1 = keras.optimizers.Adam(learning_rate=0.008)
+optimizer2 = keras.optimizers.Adam(learning_rate=0.008)
 
 # action - (N*T) * Da tensor of actions
 # states - (N*T) * Ds tensor of states
@@ -168,23 +168,52 @@ def test_ave_steps(episode):
         step = 0
     return ave_step
 
-
+def test_with_plot(use_10k):
+    w = Actor_Critic.get_weights()
+    if use_10k:
+        Actor_Critic.load_weights("./10k_weights.h5")
+    else:
+        Actor_Critic.load_weights("./tmp_weights.h5")
+    env_plot = gym.make('CartPole-v1')
+    env_plot._max_episode_steps = 10000
+    state = preprocess(env_plot.reset())
+    done = False
+    while not done:
+        env_plot.render()
+        action = choose_action(state)
+        state, _, done, _ = env_plot.step(action)
+        state = preprocess(state)
+    Actor_Critic.set_weights(w)
+    env_plot.close()
+    
+    
 max_episode = 150
 save_counter = 0
+
 history = []
-
-
-for iteration in range(300):
+for iteration in range(3000):
     states, actions, rewards, dones = sample_by_timesteps(200)
     accumulated_rewards = compute_accumulated_rewards(rewards, dones, states[-1])
     for _ in range(20):
         optimize_Critic(accumulated_rewards,states)
     Advan = estimate_advantage_function(states, rewards, dones)
-    for _ in range(1):
+    for _ in range(3):
         optimize_Actor(actions, states, Advan)
     step = test_ave_steps(2)
     print(f'Iter: {iteration+1}')
     print(f'Averages step: {step}')
+    history.append(step)
+    
+    if step >= 100:
+        Actor_Critic.save_weights("./tmp_weights.h5")
+    if iteration >= 20 and history[-3] - history[-1] > 100 and history[-3]-history[-2] > 100 :
+        Actor_Critic.load_weights("./tmp_weights.h5")
+    if iteration >= 100 and history[-1] < 20:
+        Actor_Critic.load_weights("./tmp_weights.h5")
+    if step == 10000:
+        Actor_Critic.save_weights("./10k_weights.h5")
+    with open("./history.pkl", "wb") as f:
+        pkl.dump(history, f)
 
 x = np.linspace(-2.4, 2.4, 50)
 y = np.linspace(-0.2, 0.2, 50)
@@ -206,4 +235,5 @@ accumulated_rewards = compute_accumulated_rewards(rewards, dones, states[-1])
 for _ in range(100):
     optimize_Critic(accumulated_rewards, states)
 Advan = estimate_advantage_function(states, rewards, dones)
+
 
